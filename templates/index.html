@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>檔案部署上傳</title>
+<style>
+  :root {
+    --bg-a: #0f172a;
+    --bg-b: #1e293b;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+    --ok: #34d399;
+    --err: #f87171;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; color: var(--text); }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(120deg, var(--bg-a), var(--bg-b), #312e81);
+    background-size: 300% 300%;
+    animation: bgShift 18s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  @keyframes bgShift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+  .card {
+    width: 100%;
+    max-width: 560px;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    animation: cardIn 0.6s ease both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .drop {
+    display: block;
+    position: relative;
+    border: 2px dashed rgba(148, 163, 184, 0.35);
+    border-radius: 14px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    overflow: hidden;
+  }
+  .drop:hover, .drop.drag {
+    border-color: var(--accent);
+    background: rgba(56, 189, 248, 0.06);
+    transform: translateY(-2px);
+  }
+  .drop .icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    color: #0b1220; font-size: 26px; font-weight: 700;
+    animation: float 3.4s ease-in-out infinite;
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.35);
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+  }
+  .drop p { margin: 6px 0; font-size: 14px; }
+  .drop .hint { color: var(--muted); font-size: 12px; }
+  #file { display: none; }
+  .filename {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    word-break: break-all;
+    min-height: 18px;
+  }
+  .filename strong { color: var(--text); }
+  .actions {
+    display: flex; gap: 10px; margin-top: 18px;
+  }
+  button {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s;
+  }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0b1220;
+  }
+  button.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(56, 189, 248, 0.35); }
+  button.ghost {
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--text);
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .progress-wrap {
+    margin-top: 22px;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.4s ease;
+  }
+  .progress-wrap.show { opacity: 1; max-height: 200px; }
+  .bar {
+    height: 10px;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.2s ease;
+    border-radius: 999px;
+    position: relative;
+  }
+  .bar > div::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+  .meta {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted);
+    margin-top: 8px;
+  }
+  .status {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    display: none;
+    border: 1px solid transparent;
+    animation: pop 0.3s ease;
+  }
+  @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
+  .status.ok  { display: block; background: rgba(52, 211, 153, 0.1);  border-color: rgba(52, 211, 153, 0.4);  color: var(--ok); }
+  .status.err { display: block; background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.4); color: var(--err); }
+  .status.info { display: block; background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.35); color: var(--accent); }
+  details { margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  ul.files { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); max-height: 140px; overflow: auto; }
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: -2px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>檔案部署上傳</h1>
+
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".zip,.tar.gz,.tgz,.tar.xz">
+      <div class="icon">↑</div>
+      <p><strong>點此選擇</strong> 或將檔案拖曳到這裡</p>
+      <p class="hint">支援格式：.zip · .tar.gz · .tgz · .tar.xz（最大 100MB）</p>
+      <div class="filename" id="filename"></div>
+    </label>
+
+    <div class="actions">
+      <button class="ghost" id="reset" type="button">清除</button>
+      <button class="primary" id="upload" type="button" disabled>開始上傳</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="bar"><div id="bar"></div></div>
+      <div class="meta"><span id="phase">準備中…</span><span id="percent">0%</span></div>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const drop = $('drop');
+  const fileInput = $('file');
+  const fileName = $('filename');
+  const uploadBtn = $('upload');
+  const resetBtn = $('reset');
+  const progressWrap = $('progressWrap');
+  const bar = $('bar');
+  const percent = $('percent');
+  const phase = $('phase');
+  const status = $('status');
+
+  const allowed = /\.(zip|tar\.gz|tgz|tar\.xz)$/i;
+  const MAX = 100 * 1024 * 1024;
+
+  function setStatus(kind, html) {
+    status.className = 'status ' + kind;
+    status.innerHTML = html;
+  }
+  function clearStatus() { status.className = 'status'; status.innerHTML = ''; }
+
+  function fmtSize(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/1024/1024).toFixed(2) + ' MB';
+  }
+
+  function pickFile(f) {
+    clearStatus();
+    if (!f) { fileName.textContent = ''; uploadBtn.disabled = true; return; }
+    if (!allowed.test(f.name)) {
+      setStatus('err', '不支援的檔案格式：請使用 .zip、.tar.gz、.tgz 或 .tar.xz');
+      fileInput.value = ''; fileName.textContent = ''; uploadBtn.disabled = true;
+      return;
+    }
+    if (f.size > MAX) {
+      setStatus('err', '檔案超過 100MB 上限');
+      fileInput.value = ''; fileName.textContent = ''; uploadBtn.disabled = true;
+      return;
+    }
+    fileName.innerHTML = '已選擇： <strong>' + f.name + '</strong> （' + fmtSize(f.size) + '）';
+    uploadBtn.disabled = false;
+  }
+
+  fileInput.addEventListener('change', e => pickFile(e.target.files[0]));
+
+  ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('drag');
+  }));
+  ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('drag');
+  }));
+  drop.addEventListener('drop', e => {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      fileInput.files = e.dataTransfer.files;
+      pickFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    fileName.textContent = '';
+    uploadBtn.disabled = true;
+    progressWrap.classList.remove('show');
+    bar.style.width = '0%';
+    percent.textContent = '0%';
+    phase.textContent = '準備中…';
+    clearStatus();
+  });
+
+  uploadBtn.addEventListener('click', () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    clearStatus();
+    progressWrap.classList.add('show');
+    bar.style.width = '0%';
+    percent.textContent = '0%';
+    phase.textContent = '上傳中…';
+    uploadBtn.disabled = true;
+    resetBtn.disabled = true;
+
+    const fd = new FormData();
+    fd.append('file', f);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
+
+    xhr.upload.addEventListener('progress', e => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round(e.loaded / e.total * 100);
+      bar.style.width = pct + '%';
+      percent.textContent = pct + '%';
+      if (pct >= 100) phase.innerHTML = '<span class="spinner"></span>伺服器處理中（驗證 / 解壓 / 部署）…';
+    });
+
+    xhr.onload = () => {
+      resetBtn.disabled = false;
+      uploadBtn.disabled = false;
+      let resp = {};
+      try { resp = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status >= 200 && xhr.status < 300 && resp.ok) {
+        phase.textContent = '完成';
+        bar.style.width = '100%';
+        percent.textContent = '100%';
+        let html = '✓ ' + (resp.message || '部署完成');
+        if (resp.duration) html += '<div style="margin-top:4px;color:var(--muted);font-size:12px;">耗時 ' + resp.duration + '</div>';
+        if (resp.files && resp.files.length) {
+          html += '<details><summary>展開檔案清單（' + resp.files.length + '）</summary><ul class="files">' +
+                  resp.files.map(x => '<li>' + x.replace(/</g,'&lt;') + '</li>').join('') + '</ul></details>';
+        }
+        setStatus('ok', html);
+      } else {
+        phase.textContent = '失敗';
+        setStatus('err', '✗ ' + (resp.message || ('HTTP ' + xhr.status)));
+      }
+    };
+    xhr.onerror = () => {
+      resetBtn.disabled = false;
+      uploadBtn.disabled = false;
+      phase.textContent = '失敗';
+      setStatus('err', '✗ 網路錯誤或連線中斷');
+    };
+    xhr.send(fd);
+  });
+</script>
+</body>
+</html>
